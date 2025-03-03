@@ -40,7 +40,7 @@ jobs:
 
       - name: install ADF Utilities package
         run: npm install
-        working-directory: ${{github.workspace}}
+        working-directory: ${{github.workspace}}/ADF
 
       - name: Cache node modules
         uses: actions/cache@v3
@@ -57,11 +57,11 @@ jobs:
         
       - name: Validate
         run: npm run build validate ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}}
-        working-directory: ${{github.workspace}}
+        working-directory: ${{github.workspace}}/ADF
         
       - name: Validate and Generate ARM template
         run: npm run build export ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}} "ExportedArmTemplate"
-        working-directory: ${{github.workspace}}
+        working-directory: ${{github.workspace}}/ADF
         
       - name: Commit and push changes
         run: |
