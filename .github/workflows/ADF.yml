@@ -39,49 +39,38 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-################################################ SETTING UP THE NODE AND NODE CACHE #####################################################################
+################################################ SETTING UP THE NODE #####################################################################
           
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
           node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-          
-      # - name: Cache node modules
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       **/node_modules
-      #     key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-node-
-          
-      # - name: Clean install dependencies
-      #   run: npm ci
-      #   working-directory: ${{github.workspace}}/ADF
+
+      - name: install ADF Utilities package
+        run: npm install
+        working-directory: ${{github.workspace}}/ADF
 
 ########################################### VALIDATING AND DEPLOYING THE ARM TEMPLATES ##############################################################
         
       - name: Validate
-        run: npm run build validate ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}}
+        run: npm run build validate ${{github.workspace}}/ADF /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}}
         working-directory: ${{github.workspace}}/ADF
         
       - name: Validate and Generate ARM template
-        run: npm run build export ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}} "ExportedArmTemplate"
+        run: npm run build export ${{github.workspace}}/ADF /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}} "ExportedArmTemplate"
         working-directory: ${{github.workspace}}/ADF
 
 ############################################## PUSING CHANGES TO REPO AND UPLOADING ARTIFACTS ########################################################
         
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          find ${{github.workspace}}/ADF -name "*.json" -o -name "*.ps1" | while read file; do git add "$file"; done
-          git commit -m "Update ARM templates [skip ci]" || echo "No changes to commit"
-          git push origin main || echo "No changes to push"
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+      # - name: Commit and push changes
+      #   run: |
+      #     git config --local user.email "github-actions[bot]@users.noreply.github.com"
+      #     git config --local user.name "github-actions[bot]"
+      #     find ${{github.workspace}}/ADF -name "*.json" -o -name "*.ps1" | while read file; do git add "$file"; done
+      #     git commit -m "Update ARM templates [skip ci]" || echo "No changes to commit"
+      #     git push origin main || echo "No changes to push"
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
       
       - name: Upload Exported ARM Template
         uses: actions/upload-artifact@v4
@@ -93,8 +82,8 @@ jobs:
   
   release:
     needs: build
-    runs-on: self-hosted
-    environment: PROD
+    runs-on: ubuntu-latest
+    environment: DEV
     steps:
 
 #########################################################  LOGIN TO AZURE ############################################################################
