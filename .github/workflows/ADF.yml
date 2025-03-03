@@ -1,29 +1,23 @@
-name: Deployment from UAT-ADF to PROD-ADF
+name: DEV to PROD
+
 on:
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
   rg-name: "pactiv-demo"
   adf-name: "pactiv-dev-adf"
   target-adf: "pactiv-prod-adf"
-
+  
 permissions:
   id-token: write
   contents: write
   actions: read
+
 jobs:
-
-############################################################# BUILD STAGE ###############################################################################
-
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: DEV
     steps:
-    
-  ##################################################Login to Azure and set the Subscription ##########################################################
       - name: Login to Azure
         uses: azure/login@v1
         with:
@@ -32,52 +26,48 @@ jobs:
       - name: Set Azure subscription
         run: |
           az account set --subscription "${{ secrets.SUBSCRIPTION_ID}}"
-          
-######################################## CHECKOUT THE CODE FORM THE REPO USING PAT ########################################################################
 
       - uses: actions/checkout@v3
         with:
           token: ${{ secrets.PAT_TOKEN }}
-
-################################################ SETTING UP THE NODE #####################################################################
-          
+      
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
           node-version: 18.x
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-        
+          cache-dependency-path: '**/package.json'
+
+      - name: install ADF Utilities package
+        run: npm install
+        working-directory: ${{github.workspace}}
+
       - name: Cache node modules
         uses: actions/cache@v3
         with:
           path: |
             **/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
           
       - name: Clean install dependencies
         run: npm ci
-        working-directory: ${{github.workspace}}/ADF
-
-########################################### VALIDATING AND DEPLOYING THE ARM TEMPLATES ##############################################################
+        working-directory: ${{github.workspace}}
         
       - name: Validate
         run: npm run build validate ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}}
-        working-directory: ${{github.workspace}}/ADF
+        working-directory: ${{github.workspace}}
         
       - name: Validate and Generate ARM template
         run: npm run build export ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}} "ExportedArmTemplate"
-        working-directory: ${{github.workspace}}/ADF
-
-############################################## PUSING CHANGES TO REPO AND UPLOADING ARTIFACTS ########################################################
+        working-directory: ${{github.workspace}}
         
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          find ${{github.workspace}}/ADF -name "*.json" -o -name "*.ps1" | while read file; do git add "$file"; done
+          find ${{github.workspace}}/ADFroot -name "*.json" -o -name "*.ps1" | while read file; do git add "$file"; done
           git commit -m "Update ARM templates [skip ci]" || echo "No changes to commit"
           git push origin main || echo "No changes to push"
         env:
@@ -87,33 +77,23 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ExportedArmTemplate
-          path: ${{github.workspace}}/ADF/ExportedArmTemplate/      
-
-##################################################################### RELEASE STAGE #####################################################################
+          path: ${{github.workspace}}/ExportedArmTemplate/      
   
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: DEV
     steps:
-
-#########################################################  LOGIN TO AZURE ############################################################################
-
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS}}
-
-      - name: Set Azure subscription
-        run: |
-          az account set --subscription "${{ secrets.SUBSCRIPTION_ID}}"
-
-      #################################################### DOWNLOADING AND DEPLOYING THE ARTIFACTS ######################################################
-
       - name: Download a Build Artifact
         uses: actions/download-artifact@v4
         with:
           name: ExportedArmTemplate
+      
+      - name: Login via Az module
+        uses: Azure/login@v2.2.0
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          enable-AzPSSession: true
 
       - name: data-factory-deploy
         uses: Azure/data-factory-deploy-action@v1.2.0
@@ -122,13 +102,3 @@ jobs:
           dataFactoryName: ${{ env.target-adf}}
           armTemplateFile: ARMTemplateForFactory.json
           armTemplateParametersFile: ARMTemplateParametersForFactory.json
-
-      # - name: Deploy ARM Template with PowerShell
-      #   run: |
-      #     pwsh -Command "
-      #       Connect-AzAccount -Identity
-      #       New-AzResourceGroupDeployment `
-      #         -ResourceGroupName $env:rg_name `
-      #         -TemplateFile ARMTemplateForFactory.json `
-      #         -TemplateParameterFile ARMTemplateParametersForFactory.json `
-      #         -Mode Incremental"
