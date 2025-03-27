@@ -10,6 +10,10 @@
 		"AzureKeyVault1_properties_typeProperties_baseUrl": {
 			"type": "string",
 			"defaultValue": "https://mayurrdevadfkv.vault.azure.net/"
+		},
+		"default_properties_name_value": {
+			"type": "string",
+			"defaultValue": "Mayurr"
 		}
 	},
 	"variables": {
@@ -48,6 +52,18 @@
 				"type": "AzureKeyVault",
 				"typeProperties": {
 					"baseUrl": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/default')]",
+			"type": "Microsoft.DataFactory/factories/globalparameters",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"name": {
+					"type": "string",
+					"value": "[parameters('default_properties_name_value')]"
 				}
 			},
 			"dependsOn": []

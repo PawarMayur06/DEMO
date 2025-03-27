@@ -8,6 +8,9 @@
 		"AzureKeyVault1_properties_typeProperties_baseUrl": {
 			"value": "https://mayurrdevadfkv.vault.azure.net/"
 		},
+		"default_properties_name_value": {
+			"value": "Mayurr"
+		},
 		"containerUri": {
 			"value": ""
 		},
