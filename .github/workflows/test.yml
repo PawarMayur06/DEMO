@@ -48,6 +48,7 @@ jobs:
       - name: Install Azure PowerShell modules
         run: |
           pwsh -Command 'Install-Module -Name Az -Force -AllowClobber -Scope CurrentUser'
+          pwsh -Command 'Import-Module Az
           
       - name: Login via Az module
         uses: Azure/login@v2.2.0
