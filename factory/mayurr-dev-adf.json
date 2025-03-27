@@ -1,5 +1,13 @@
 {
 	"name": "mayurr-dev-adf",
+	"properties": {
+		"globalParameters": {
+			"name": {
+				"type": "string",
+				"value": "Mayurr"
+			}
+		}
+	},
 	"location": "eastus",
 	"identity": {
 		"type": "SystemAssigned",
