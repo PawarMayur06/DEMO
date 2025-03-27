@@ -1,80 +1,40 @@
-name: DEV to PROD
+name: Dev to Prod
+ 
 on:
   workflow_dispatch:
-env:
-  rg-name: "pactiv-demo"
-  adf-name: "pactiv-dev-adf"
-  target-adf: "pactiv-prod-adf"
   
-permissions:
-  id-token: write
-  contents: write
-  actions: read
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: windows-latest
     environment: DEV
     steps:
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS}}
  
-      - name: Set Azure subscription
-        run: |
-          az account set --subscription "${{ secrets.SUBSCRIPTION_ID}}"
-      - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v3.4.1
+      with:
+        node-version: 18.x
+        
+    - name: install ADF Utilities package
+      run: npm install
+      working-directory: ${{github.workspace}}/
       
-      - name: Setup Node.js environment
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: '**/package.json'
+    - name: Validate
+      run: npm run build validate ${{github.workspace}}/ /subscriptions/737d1672-96a9-4ba4-b12c-8027ef27ab4e/resourceGroups/Mayurr-rg/providers/Microsoft.DataFactory/factories/mayurr-dev-adf
+      working-directory: ${{github.workspace}}/
 
-      - name: install ADF Utilities package
-        run: npm install
-        working-directory: ${{github.workspace}}/
+ 
+    - name: Validate and Generate ARM template
+      run: npm run build export ${{github.workspace}}/ /subscriptions/737d1672-96a9-4ba4-b12c-8027ef27ab4e/resourceGroups/Mayurr-rg/providers/Microsoft.DataFactory/factories/mayurr-dev-adf "ExportedArmTemplate" 
+      working-directory: ${{github.workspace}}/
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            **/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-          
-      - name: Clean install dependencies
-        run: npm ci
-        working-directory: ${{github.workspace}}
-        
-      - name: Validate
-        run: npm run build validate ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}}
-        working-directory: ${{github.workspace}}
-        
-      - name: Validate and Generate ARM template
-        run: npm run build export ${{github.workspace}}/ /subscriptions/${{ secrets.SUBSCRIPTION_ID}}/resourceGroups/${{ env.rg-name}}/providers/Microsoft.DataFactory/factories/${{ env.adf-name}} "ExportedArmTemplate"
-        working-directory: ${{github.workspace}}
-        
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          find ${{github.workspace}}/ADFroot -name "*.json" -o -name "*.ps1" | while read file; do git add "$file"; done
-          git commit -m "Update ARM templates [skip ci]" || echo "No changes to commit"
-          git push origin main || echo "No changes to push"
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-      
-      - name: Upload Exported ARM Template
-        uses: actions/upload-artifact@v4
-        with:
-          name: ExportedArmTemplate
-          path: ${{github.workspace}}/ExportedArmTemplate/      
-  
+    - name: upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ExportedArmTemplate 
+        path: ${{github.workspace}}/ExportedArmTemplate
+ 
   release:
     needs: build
     runs-on: self-hosted
@@ -98,7 +58,7 @@ jobs:
       - name: data-factory-deploy
         uses: Azure/data-factory-deploy-action@v1.2.0
         with:
-          resourceGroupName: ${{ env.rg-name}}
-          dataFactoryName: ${{ env.target-adf}}
+          resourceGroupName: Mayurr-rg
+          dataFactoryName: mayurr-prod-adf
           armTemplateFile: ARMTemplateForFactory.json
           armTemplateParametersFile: ARMTemplateParametersForFactory.json
