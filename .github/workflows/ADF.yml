@@ -62,3 +62,4 @@ jobs:
           dataFactoryName: mayurr-prod-adf
           armTemplateFile: ARMTemplateForFactory.json
           armTemplateParametersFile: ARMTemplateParametersForFactory.json
+          additionalParameters: 'AzureKeyVault1_properties_typeProperties_baseUrl=https://mayurrprodadfkv.vault.azure.net/'
